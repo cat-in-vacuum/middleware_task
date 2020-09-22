@@ -3,10 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"github.com/cat-in-vacuum/middleware_task/log"
 	"github.com/cat-in-vacuum/middleware_task/service"
 	"github.com/gorilla/mux"
-	"io"
-	"log"
 	"net/http"
 )
 
@@ -32,7 +31,7 @@ func New(port string, box *service.Box) *API {
 }
 
 func (a *API) Start() error {
-  return http.ListenAndServe(a.port, a.router)
+	return http.ListenAndServe(a.port, a.router)
 }
 
 func notificationHandler(box *service.Box) http.HandlerFunc {
@@ -42,30 +41,21 @@ func notificationHandler(box *service.Box) http.HandlerFunc {
 			task = service.Task{}
 		)
 		p := json.NewDecoder(r.Body)
-		for {
+		for p.More() {
 			err := p.Decode(&task)
 			if err != nil {
-				if err != io.EOF {
-					log.Println(err)
-					return
-				}
-				break
+				return
 			}
 			req = append(req, task)
 		}
+
 		resp := box.ProcessNotifications(context.TODO(), req)
 
 		enc := json.NewEncoder(w)
-		for {
-			for {
-				err := enc.Encode(&resp)
-				if err != nil {
-					if err != io.EOF {
-						log.Println(err)
-						return
-					}
-					break
-				}
+		for i := range resp {
+			if err := enc.Encode(resp[i]); err != nil {
+				log.Error(err)
+				continue
 			}
 		}
 	}

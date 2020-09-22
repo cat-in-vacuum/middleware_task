@@ -36,9 +36,7 @@ func main() {
 
 	// out := b.ProcessNotifications(context.TODO(), notifications)
 	n := notificator.New(http.DefaultClient)
-	box := &service.Box{
-		Notificator: n,
-	}
+	box := service.New(n)
 	server := api.New(":8080", box)
 	log.Fatal(server.Start())
 	// b.ProcessNotifications(context.TODO(), notifications)
