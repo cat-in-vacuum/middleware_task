@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/cat-in-vacuum/middleware_task/log"
 	"net"
 	"net/http"
+	"net/url"
 )
 
 const (
@@ -35,16 +36,23 @@ type Response struct {
 	Error string
 }
 
-func (n *Notificator) Send(ctx context.Context, notification Notification) *Response {
+func (n *Notificator) Send(ctx context.Context, notification Notification) Response {
 	var (
-		out = &Response{
+		out = Response{
 			URL: notification.URL,
 		}
 	)
+	_, err := url.ParseRequestURI(out.URL)
+	if err != nil {
+		out.Error = err.Error()
+		log.Error(err)
+		return out
+	}
 	req, err := http.NewRequest(http.MethodGet, notification.URL, nil)
 	if err != nil {
 		out.Code = fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 		out.Error = serverErr
+		log.Error(err)
 		return out
 	}
 
@@ -53,22 +61,22 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) *Resp
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			out.Code = fmt.Sprintf("%d %s", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout))
 			out.Error = externalApiError
+			log.Error(err)
 			return out
 		}
 
 		out.Code = fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 		out.Error = serverErr
+		log.Error(err)
 		return out
 	}
 
 	out.Code = httpResp.Status
 
-	d := json.NewDecoder(httpResp.Body)
-	for {
-		if err := d.Decode(&out.Body); err != io.EOF {
-			out.Error = jsonDecodeErr
-		}
-		break
+	if err := json.NewDecoder(httpResp.Body).Decode(&out.Body); err != nil {
+		out.Error = jsonDecodeErr
+		log.Error(err)
+		return out
 	}
 
 	return out
