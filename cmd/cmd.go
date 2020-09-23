@@ -20,10 +20,12 @@ func main() {
 	signal.Notify(osSig, os.Interrupt)
 
 	ctx, cancelApi := context.WithCancel(context.Background())
+
 	l := limiter.NewFixedWindow(limiter.Config{
-		Duration: time.Second * 10,
-		MaxReq:   2,
+		Duration: time.Minute,
+		MaxReq:   100,
 	})
+
 	n := notificator.New(http.DefaultClient)
 	box := service.New(n)
 	server := api.New(ctx, ":8080", box, l)
