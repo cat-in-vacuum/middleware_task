@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/cat-in-vacuum/middleware_task/log"
 	"github.com/cat-in-vacuum/middleware_task/service"
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
 )
 
 const (
@@ -17,29 +19,48 @@ const (
 type API struct {
 	router *mux.Router
 	port   string
+	srv    *http.Server
 }
 
-func New(port string, box *service.Box) *API {
+func New(ctx context.Context, port string, box *service.Box) *API {
 	r := mux.NewRouter()
-	// r.Use(rateLimiter())
-	r.HandleFunc(pathNotifications, notificationHandler(box)).Methods("POST")
+	r.Use(rateLimiter)
+	r.Use(logger)
+	r.HandleFunc(pathNotifications, notificationHandler(ctx, box)).Methods("POST")
 
 	return &API{
 		router: r,
 		port:   port,
+		srv: &http.Server{
+			ReadTimeout:  time.Second * 15,
+			WriteTimeout: time.Second * 15,
+			Addr:         port,
+			Handler:      r,
+		},
 	}
 }
 
-func (a *API) Start() error {
-	return http.ListenAndServe(a.port, a.router)
+func (a *API) Start() {
+	if err := a.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(fmt.Sprintf("Could not listen on %s: %v\n", a.port, err))
+	}
 }
 
-func notificationHandler(box *service.Box) http.HandlerFunc {
+func (a *API) Stop(ctx context.Context, cancelFunc context.CancelFunc) error {
+	a.srv.RegisterOnShutdown(
+		func() {
+			cancelFunc()
+		})
+	return a.srv.Shutdown(ctx)
+}
+
+func notificationHandler(ctx context.Context, box *service.Box) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var (
 			req  = make([]service.Task, 0)
 			task = service.Task{}
 		)
+
 		p := json.NewDecoder(r.Body)
 		for p.More() {
 			err := p.Decode(&task)
@@ -49,7 +70,7 @@ func notificationHandler(box *service.Box) http.HandlerFunc {
 			req = append(req, task)
 		}
 
-		resp := box.ProcessNotifications(context.TODO(), req)
+		resp := box.ProcessNotifications(ctx, req)
 
 		enc := json.NewEncoder(w)
 		for i := range resp {
