@@ -7,7 +7,7 @@ import (
 )
 
 type FixedWindow struct {
-	cgf     Config
+	cfg     Config
 	mu      sync.Mutex
 	clients map[string]*counter
 }
@@ -34,7 +34,7 @@ type Config struct {
 
 func NewFixedWindow(cfg Config) *FixedWindow {
 	return &FixedWindow{
-		cgf:     cfg,
+		cfg:     cfg,
 		mu:      sync.Mutex{},
 		clients: make(map[string]*counter),
 	}
@@ -44,7 +44,7 @@ func NewFixedWindow(cfg Config) *FixedWindow {
 func (l *FixedWindow) IsAllow(ip string) bool {
 	fmt.Println(ip)
 	if client, ok := l.clients[ip]; ok {
-		allow := client.current < l.cgf.MaxReq
+		allow := client.current < l.cfg.MaxReq
 		fmt.Println(client.current)
 		if allow {
 			l.mu.Lock()
@@ -65,7 +65,7 @@ func (l *FixedWindow) IsAllow(ip string) bool {
 		},
 	}
 	l.clients[ip] = c
-	c.run(l.cgf.Duration)
+	c.run(l.cfg.Duration)
 	l.mu.Unlock()
 	return true
 }
