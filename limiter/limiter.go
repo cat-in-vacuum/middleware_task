@@ -16,11 +16,11 @@ type counter struct {
 	current   int
 	timeStart time.Time
 	timeEnd   time.Time
-	resetFunc func(c *counter, t *time.Timer)
+	resetFunc func(c *counter, t *time.Ticker)
 }
 
 func (c *counter) run(dur time.Duration) {
-	go c.resetFunc(c, time.NewTimer(dur))
+	go c.resetFunc(c, time.NewTicker(dur))
 }
 
 func (c *counter) reset() {
@@ -58,9 +58,10 @@ func (l *FixedWindow) IsAllow(ip string) bool {
 	l.mu.Lock()
 	c := &counter{
 		current: 1,
-		resetFunc: func(c *counter, t *time.Timer) {
-			<-t.C
-			c.current = 0
+		resetFunc: func(c *counter, t *time.Ticker) {
+			for range t.C {
+				c.current = 0
+			}
 		},
 	}
 	l.clients[ip] = c
