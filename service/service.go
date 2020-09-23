@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"github.com/cat-in-vacuum/middleware_task/notificator"
-	"sync"
 )
 
 const errServerShutdown = "server_shutdown"
@@ -28,7 +27,6 @@ func (b Box) ProcessNotifications(ctx context.Context, tasks []Task) []notificat
 
 		chOut = make(chan notificator.Response, len(tasks))
 		chIn  = make(chan notificator.Notification, len(tasks))
-		wg    = &sync.WaitGroup{}
 	)
 
 	notifications := taskToNotification(tasks)
@@ -36,19 +34,22 @@ func (b Box) ProcessNotifications(ctx context.Context, tasks []Task) []notificat
 		chIn <- notify
 	}
 	for i := 0; i < len(notifications); i++ {
-		wg.Add(1)
-		go b.process(ctx, chIn, chOut, wg)
+		go b.process(ctx, chIn, chOut)
 	}
 
 	for i := 0; i < len(notifications); i++ {
 		out = append(out, <-chOut)
 	}
-	wg.Wait()
 
 	return out
 }
 
-func (b Box) process(ctx context.Context, chIn <-chan notificator.Notification, chOut chan<- notificator.Response, wg *sync.WaitGroup) {
+func (b Box) process(ctx context.Context, chIn <-chan notificator.Notification, chOut chan<- notificator.Response) {
+	task := <-chIn
+	chOut <- b.notificator.Send(ctx, task)
+}
+
+/*func (b Box) process(ctx context.Context, chIn <-chan notificator.Notification, chOut chan<- notificator.Response, wg *sync.WaitGroup) {
 	defer wg.Done()
 	task := <-chIn
 	select {
@@ -57,12 +58,13 @@ func (b Box) process(ctx context.Context, chIn <-chan notificator.Notification, 
 			Error: errServerShutdown,
 			URL:   task.URL,
 		}
+		return
 	default:
 		resp := b.notificator.Send(ctx, task)
 		chOut <- resp
 	}
 
-}
+}*/
 
 func taskToNotification(t []Task) []notificator.Notification {
 	out := make([]notificator.Notification, len(t))
