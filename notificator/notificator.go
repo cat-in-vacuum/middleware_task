@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 	externalApiError = "external_service_unavailable"
 
 	jsonDecodeErr = "invalid_json"
+	ctxCancelErr = "shutdown_server_or_canceling_request"
 )
 
 type Notificator struct {
@@ -31,10 +33,10 @@ type Notification struct {
 }
 
 type Response struct {
-	URL   string      `json:"url"`
-	Body  interface{} `json:"body"`
-	Code  string      `json:"code"`
-	Error string      `json:"error"`
+	URL   string      `json:"url,omitempty"`
+	Body  interface{} `json:"body,omitempty"`
+	Code  string      `json:"code,omitempty"`
+	Error string      `json:"error,omitempty"`
 }
 
 func (n *Notificator) Send(ctx context.Context, notification Notification) Response {
@@ -43,6 +45,7 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 			URL: notification.URL,
 		}
 	)
+
 	err := validURL(out.URL)
 	if err != nil {
 		out.Error = err.Error()
@@ -50,7 +53,7 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 		return out
 	}
 
-	req, err := http.NewRequest(http.MethodGet, notification.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, notification.URL, nil)
 	if err != nil {
 		out.Code = fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 		out.Error = serverErr
@@ -58,11 +61,19 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 		return out
 	}
 
+	time.Sleep(time.Second*5)
+
 	httpResp, err := n.client.Do(req)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			out.Code = fmt.Sprintf("%d %s", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout))
 			out.Error = externalApiError
+			log.Error(err)
+			return out
+		}
+
+		if ctx.Err() != nil {
+			out.Error = ctxCancelErr
 			log.Error(err)
 			return out
 		}
