@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 const (
@@ -61,7 +60,7 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 		return out
 	}
 
-	time.Sleep(time.Second*5)
+	// time.Sleep(time.Second*5)
 
 	httpResp, err := n.client.Do(req)
 	if err != nil {
