@@ -22,9 +22,9 @@ type API struct {
 	srv    *http.Server
 }
 
-func New(ctx context.Context, port string, box *service.Box) *API {
+func New(ctx context.Context, port string, box *service.Box, l Limiter) *API {
 	r := mux.NewRouter()
-	r.Use(rateLimiter)
+	r.Use(rateLimiter(l))
 	r.Use(logger)
 	r.HandleFunc(pathNotifications, notificationHandler(ctx, box)).Methods("POST")
 
