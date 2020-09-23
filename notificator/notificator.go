@@ -3,6 +3,7 @@ package notificator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/cat-in-vacuum/middleware_task/log"
 	"net"
@@ -30,10 +31,10 @@ type Notification struct {
 }
 
 type Response struct {
-	URL   string
-	Body  map[string]interface{}
-	Code  string
-	Error string
+	URL   string      `json:"url"`
+	Body  interface{} `json:"body"`
+	Code  string      `json:"code"`
+	Error string      `json:"error"`
 }
 
 func (n *Notificator) Send(ctx context.Context, notification Notification) Response {
@@ -42,12 +43,13 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 			URL: notification.URL,
 		}
 	)
-	_, err := url.ParseRequestURI(out.URL)
+	err := validURL(out.URL)
 	if err != nil {
 		out.Error = err.Error()
 		log.Error(err)
 		return out
 	}
+
 	req, err := http.NewRequest(http.MethodGet, notification.URL, nil)
 	if err != nil {
 		out.Code = fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
@@ -72,6 +74,11 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 	}
 
 	out.Code = httpResp.Status
+	if httpResp.StatusCode != http.StatusOK {
+		out.Error = "non_200_resp_status"
+		log.Error(err)
+		return out
+	}
 
 	if err := json.NewDecoder(httpResp.Body).Decode(&out.Body); err != nil {
 		out.Error = jsonDecodeErr
@@ -80,4 +87,18 @@ func (n *Notificator) Send(ctx context.Context, notification Notification) Respo
 	}
 
 	return out
+}
+
+func validURL(u string) error {
+	rawUrl, err := url.ParseRequestURI(u)
+	if err != nil {
+		return err
+	}
+	scheme := rawUrl.Scheme
+
+	if scheme != "https" && scheme != "http" {
+		log.Debug(scheme)
+		return errors.New(fmt.Sprintf("unsupported protocol scheme: %s", scheme))
+	}
+	return nil
 }
