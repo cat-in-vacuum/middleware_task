@@ -40,6 +40,8 @@ func (b Box) ProcessNotifications(ctx context.Context, tasks []Task) []notificat
 	for i := 0; i < len(notifications); i++ {
 		out = append(out, <-chOut)
 	}
+	close(chIn)
+	close(chOut)
 
 	return out
 }
