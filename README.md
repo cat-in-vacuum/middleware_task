@@ -14,7 +14,7 @@ POST:
 
     {"URL": "https://jsonplaceholder.typicode.com/posts/1"}
     {"URL": "https://jsonplaceholder.typicode.com/posts/need404"}
-    {"URL": "unsopportedschema(://jsonplaceholder.typicode.com/posts/3"}
+    {"URL": "unsupportedschema(://jsonplaceholder.typicode.com/posts/3"}
 
 **response**
 
