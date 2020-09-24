@@ -41,6 +41,7 @@ func New(ctx context.Context, port string, box *service.Box, l Limiter) *API {
 }
 
 func (a *API) Start() {
+	log.Debug(fmt.Sprintf("starting server on port: %s", a.port))
 	if err := a.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(fmt.Sprintf("Could not listen on %s: %v\n", a.port, err))
 	}

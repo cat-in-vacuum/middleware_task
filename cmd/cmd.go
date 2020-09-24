@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/cat-in-vacuum/middleware_task/api"
 	"github.com/cat-in-vacuum/middleware_task/limiter"
 	"github.com/cat-in-vacuum/middleware_task/log"
@@ -14,6 +15,8 @@ import (
 )
 
 func main() {
+	addr := flag.String("port", "5001", "port for app")
+	flag.Parse()
 
 	osSig := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
@@ -28,7 +31,7 @@ func main() {
 
 	n := notificator.New(http.DefaultClient)
 	box := service.New(n)
-	server := api.New(ctx, ":8080", box, l)
+	server := api.New(ctx, ":"+*addr, box, l)
 
 	go func() {
 		<-osSig
